@@ -1,0 +1,44 @@
+#include <msp430.h> 
+
+
+int main(void)
+{
+    WDTCTL = WDTPW | WDTHOLD;         // Stop watchdog timer
+
+    P1DIR |= BIT0;                    // Set P1.0 to be output
+    P1REN |= BIT3;                    // Enable pull up/down resistor
+    P1OUT |= BIT3;                    // Sets resistor to pull up
+
+    P1IFG &= ~BIT3;                   // Clear interrupt flag
+    P1IE |= BIT3;                     // Interrupt enable
+    P1IES &= ~BIT3;                   // Interrupts when button is released
+
+
+    TA0CCTL0 = CCIE;                  // CCR0 interrupt enabled
+    TA0CCR0 = 60000;                  // set CCR0 value
+    TA0CTL = TASSEL_2 + MC_0 + TACLR; // SMCLK, Stop, clear TA0R
+
+    __enable_interrupt();
+
+    __bis_SR_register(LPM0 + GIE);    // LPM0 w/ general interrupts enabled
+
+    for(;;){}                         //infinte loop
+
+}
+
+                                      // Port 1 interrupt routine
+#pragma vector = PORT1_VECTOR
+__interrupt void Port_1(void){
+    P1OUT ^= BIT0;                    // Toggle LED
+    P1IE &= ~BIT3;                    // Interrupt button
+    TA0CTL = TASSEL_2 + MC_1 + TACLR; // SMCLK, Up, clear TA0R
+    P1IFG &= ~BIT3;                   // Clear interrupt flag
+}
+
+                                        // Timer A0 ISR
+#pragma vector=TIMER0_A0_VECTOR
+__interrupt void TIMER0_A0_ISR(void){
+    TA0CTL = MC_0;                      // Stop timer
+    P1IE |= BIT3;                       // Enable interrupt
+    P1IFG &= ~BIT3;                     // Clear interrupt flag
+}
